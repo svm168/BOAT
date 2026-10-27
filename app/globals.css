@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-sand text-ink font-sans antialiased;
+}
+
+.leaflet-container {
+  font-family: inherit;
+  z-index: 0;
+}
