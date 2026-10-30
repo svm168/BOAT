@@ -3,14 +3,23 @@ import type { ResultSetHeader } from "mysql2";
 import { getSessionUser, publicIdFromRandom } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { campusBeaconUuid } from "@/lib/campus";
-import { listBikesForOwner, nextBeaconMinor } from "@/lib/bikes";
+import { listBikesForOwner, latestLocation, nextBeaconMinor } from "@/lib/bikes";
 import type { Bike } from "@/lib/types";
 
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   const bikes = await listBikesForOwner(user.id);
-  return NextResponse.json({ bikes });
+  const bikesWithLastLocation = await Promise.all(
+    bikes.map(async (bike) => {
+      const last = await latestLocation(bike.id);
+      return {
+        ...bike,
+        lastLocation: last || null,
+      };
+    })
+  );
+  return NextResponse.json({ bikes: bikesWithLastLocation });
 }
 
 export async function POST(request: Request) {

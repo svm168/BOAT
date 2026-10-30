@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { createSession, hashPassword } from "@/lib/auth";
 import type { ResultSetHeader } from "mysql2";
+import type { User } from "@/lib/types";
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  const body = await request.json().catch(() => ({}));
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
   const displayName = String(body.displayName ?? "").trim();
@@ -40,6 +41,15 @@ export async function POST(request: Request) {
     [email, passwordHash, displayName, phone, hostel, room]
   );
 
-  await createSession(result.insertId);
-  return NextResponse.json({ ok: true });
+  const token = await createSession(result.insertId);
+  const userRows = await query<User[]>(
+    "SELECT id, email, display_name, phone, hostel, room FROM users WHERE id = ? LIMIT 1",
+    [result.insertId]
+  );
+
+  return NextResponse.json({
+    ok: true,
+    token,
+    user: userRows[0] ?? null,
+  });
 }

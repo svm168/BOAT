@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import bcrypt from "bcryptjs";
 import { query } from "./db";
 import type { User } from "./types";
@@ -23,31 +23,62 @@ export async function verifyPassword(plain: string, hash: string) {
   return bcrypt.compare(plain, hash);
 }
 
-export async function createSession(userId: number) {
+export async function createSession(userId: number): Promise<string> {
   const token = await new SignJWT({ uid: userId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("14d")
     .sign(secret());
 
-  const jar = await cookies();
-  jar.set(COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 14,
-  });
+  try {
+    const jar = await cookies();
+    jar.set(COOKIE, token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 14,
+    });
+  } catch {
+    // cookies() may not be modifiable in some environments; token is still returned
+  }
+
+  return token;
 }
 
 export async function clearSession() {
-  const jar = await cookies();
-  jar.delete(COOKIE);
+  try {
+    const jar = await cookies();
+    jar.delete(COOKIE);
+  } catch {
+    // ignore
+  }
 }
 
 export async function getSessionUser(): Promise<User | null> {
-  const jar = await cookies();
-  const token = jar.get(COOKIE)?.value;
+  let token: string | undefined;
+
+  // 1. Check Authorization: Bearer <token> (standard for Flutter / mobile apps)
+  try {
+    const reqHeaders = await headers();
+    const authHeader = reqHeaders.get("authorization");
+    if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
+      token = authHeader.slice(7).trim();
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. Fall back to Cookie (standard for web browsers)
+  if (!token) {
+    try {
+      const jar = await cookies();
+      token = jar.get(COOKIE)?.value;
+    } catch {
+      // ignore
+    }
+  }
+
   if (!token) return null;
 
   try {

@@ -205,21 +205,34 @@ Mark the bike **Missing**, reload the public page, confirm the **Missing** badge
 
 ---
 
-## Step 7 — Write an NTAG215 sticker (no PN532 required)
+## Step 7 — Flash an NTAG215 sticker with NDEF (Native Tap-to-Webpage, No App Required)
 
-Use a phone with NFC. Android is simplest.
+> 💡 **Why NDEF is required:** If an NFC tag is written with raw text or raw memory bytes, mobile phones will ignore it natively and force you to open a dedicated reader app (like NFC Tools). When flashed with **NDEF (NFC Data Exchange Format) URI record**, an unlocked mobile phone automatically detects the tag on tap and opens the bicycle page directly in the default browser.
+>
+> ⚠️ **HTTPS Requirement:** iOS CoreNFC (iPhone XS and newer) and modern Android only trigger native background tap for **`https://`** addresses. For local testing, use a Cloudflare Tunnel (`cloudflared tunnel --url http://localhost:3000`) or ngrok HTTPS URL.
 
-1. Install **NFC Tools**.
-2. Put the BOAT site on a URL the phone can reach:
-   - During local demo, the phone and PC must be on the same Wi‑Fi, and `NEXT_PUBLIC_APP_URL` must be `http://YOUR_PC_LAN_IP:3000` (ipconfig → IPv4). Restart the Next server after changing it. Windows Firewall must allow Node on port 3000.
-   - For a real plate, deploy the app (Vercel or similar) and put that https URL in `NEXT_PUBLIC_APP_URL`.
-3. In NFC Tools: **Write → Add a record → URL/URI** → paste `https://your-domain/bike/ab3k9mpq` (or the LAN URL).
-4. **Write** → hold the NTAG215 sticker to the phone until it beeps.
-5. Lock the tag only after you are sure the URL is correct (locking is permanent).
+Choose any of the following 3 methods to flash your NTAG215 sticker with NDEF:
 
-**What you should see:** tapping the sticker opens the browser on the public bike page. No app install.
+### Option A: From the Browser (Web NFC — Easiest on Android)
+1. Open your BOAT dashboard bike page on Chrome for Android over HTTPS (or localhost).
+2. Under **NFC Plate Flasher (NDEF URI)**, verify or edit the target public URL.
+3. Tap **Flash NDEF URI to sticker**.
+4. Hold the NTAG215 sticker against the back of your phone.
+5. Once written, tap **Test / Verify Tag NDEF format** to verify it is encoded as an NDEF URI.
 
-iPhone: NFC URL records open Safari automatically. If nothing happens, the record is not a URL type.
+### Option B: Using ESP32 + RC522 Hardware Flasher
+1. Open [`firmware/nfc_ndef_flasher/nfc_ndef_flasher.ino`](./firmware/nfc_ndef_flasher/nfc_ndef_flasher.ino) in Arduino IDE.
+2. Connect your ESP32 with RC522 wired according to [HARDWARE_GUIDE.md](./firmware/HARDWARE_GUIDE.md).
+3. Set your target bike URL and upload.
+4. Open Serial Monitor (115200 baud) and tap the NTAG215 sticker. It formats the Capability Container (CC) at Page 3 and writes the NDEF URI record starting at Page 4.
+
+### Option C: Using Phone (NFC Tools App)
+1. In NFC Tools: **Write → Add a record → Custom URL / URI** (⚠️ **Do NOT select "Text"**, or it will write a raw text record that phones won't open automatically).
+2. Paste the `https://...` bike URL.
+3. Click **Write** and tap the NTAG215 sticker.
+
+**Verification:**
+Lock or turn on your phone screen, keep the phone unlocked, and tap the back of the phone to the sticker. The browser will open directly to the bicycle's page with no dedicated app required!
 
 ---
 

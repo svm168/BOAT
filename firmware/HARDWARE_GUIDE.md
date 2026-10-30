@@ -110,6 +110,40 @@ This guide walks you through building and testing the hardware today.
 
 ---
 
+### Step E: Flash your NTAG215 Sticker with NDEF (Native Tap-to-Webpage, No App Required)
+
+> 💡 **Why NDEF matters:** If a tag is written with raw URL text or raw memory bytes, mobile operating systems cannot recognize it. The user has to open a dedicated app (like NFC Tools) to read it. When flashed with **NDEF (NFC Data Exchange Format) URI record**, an unlocked iPhone (XS+) or Android phone will **instantly pop up a banner or open the bicycle's page on a single tap with zero apps installed**.
+
+1. In Arduino IDE, open [`firmware/nfc_ndef_flasher/nfc_ndef_flasher.ino`](./nfc_ndef_flasher/nfc_ndef_flasher.ino).
+2. Set your board type at the top of the sketch:
+   - For **ESP32-C3**: `#define IS_ESP32_C3 1`
+   - For **Standard ESP32**: `#define IS_ESP32_C3 0`
+3. Set your target bicycle URL in the sketch:
+   ```cpp
+   String targetUrl = "https://your-domain.com/bike/YOUR_BIKE_PUBLIC_ID";
+   ```
+   *(Note: iOS background tap requires an **`https://`** URL. If running locally for testing, you can use a Cloudflare Tunnel URL or ngrok HTTPS URL).*
+4. Click **Upload** and open the **Serial Monitor** at **115200 baud**.
+5. Tap your NTAG215 sticker onto the RC522 reader.
+6. The Serial Monitor will output:
+   ```text
+   >>> NTAG215 TAG DETECTED! <<<
+   Tag UID: 04:A1:B2:C3:D4:E5:F6
+   Flashing NDEF URL: https://your-domain.com/bike/ab3k9mpq
+   [OK] Capability Container (CC) verified at Page 3.
+   [OK] All NDEF pages written successfully!
+   ========================================================
+     TAG SUCCESSFULLY FLASHED WITH NDEF URI FORMAT!
+   ========================================================
+     NDEF Type: NFC Forum Well-Known URI (0x55 / 'U')
+   Tap this sticker to the back of an unlocked phone.
+   The phone will immediately open the webpage directly!
+   NO DEDICATED NFC APP IS REQUIRED.
+   ```
+7. **Test with your phone**: Unlock your iPhone or Android, and tap the back of the phone against the sticker. The browser opens directly!
+
+---
+
 ## 4. Software API Reference for Hardware Pings
 
 Any hardware or script can report a bicycle sighting by making an HTTP POST:

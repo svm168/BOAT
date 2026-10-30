@@ -8,6 +8,17 @@ Hardware for this step:
 - USB-C cable that carries data (not charge-only)
 - Later: 3.7 V 2000 mAh LiPo on the board battery pads / connector (do this only after USB flashing works)
 
+## Firmware Sketches in this Directory
+
+- **`nfc_ndef_flasher/nfc_ndef_flasher.ino`**: Flashes NTAG215 stickers with standard **NFC Forum Type 2 NDEF URI** records so unlocked mobile phones open the bicycle's web page directly on tap with **no app required**.
+- **`boat_ibeacon.ino`**: ESP32-C3 low-power BLE iBeacon broadcaster (duty cycles 100 ms on / 2.5 s sleep).
+- **`esp32_rfid_ble_scanner/esp32_rfid_ble_scanner.ino`**: Stationary scanner station (RFID + BLE) located at campus gates or cycle stands reporting fixes to `/api/location`.
+- **`rfid_uid_reader/rfid_uid_reader.ino`**: Quick utility to read the physical UID of any card/tag for registration.
+
+For the complete hardware wiring and setup guide, see [HARDWARE_GUIDE.md](./HARDWARE_GUIDE.md).
+
+---
+
 ## 1. Install Arduino IDE (Windows)
 
 1. Open [https://www.arduino.cc/en/software](https://www.arduino.cc/en/software).
