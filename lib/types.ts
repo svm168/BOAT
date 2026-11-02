@@ -5,6 +5,7 @@ export type User = {
   id: number;
   email: string;
   display_name: string;
+  enrollment_id: string;
   phone: string | null;
   hostel: string | null;
   room: string | null;

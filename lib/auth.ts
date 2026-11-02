@@ -86,7 +86,7 @@ export async function getSessionUser(): Promise<User | null> {
     const uid = Number(payload.uid);
     if (!uid) return null;
     const rows = await query<User[]>(
-      "SELECT id, email, display_name, phone, hostel, room FROM users WHERE id = ? LIMIT 1",
+      "SELECT id, email, display_name, enrollment_id, phone, hostel, room FROM users WHERE id = ? LIMIT 1",
       [uid]
     );
     return rows[0] ?? null;

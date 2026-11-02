@@ -6,12 +6,14 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   display_name VARCHAR(120) NOT NULL,
-  phone VARCHAR(32) NULL,
+  enrollment_id VARCHAR(64) NOT NULL,
+  phone VARCHAR(32) NOT NULL,
   hostel VARCHAR(120) NULL,
   room VARCHAR(32) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_users_email (email)
+  UNIQUE KEY uq_users_email (email),
+  UNIQUE KEY uq_users_enrollment (enrollment_id)
 );
 
 CREATE TABLE IF NOT EXISTS bikes (

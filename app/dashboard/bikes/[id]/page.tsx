@@ -1,15 +1,28 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { getBikeForOwner, latestLocation, locationTrail } from "@/lib/bikes";
-import { appUrl, campusCenter, mockScannerLocation } from "@/lib/campus";
+import { mockScannerLocation } from "@/lib/campus";
 import { BikeMapDynamic } from "@/components/BikeMapDynamic";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ToggleStatusButton } from "@/components/ToggleStatusButton";
-import { SimulateScanButton } from "@/components/SimulateScanButton";
-import { WriteNfcButton } from "@/components/WriteNfcButton";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const user = await getSessionUser().catch(() => null);
+  if (!user) return { title: "Bicycle Details" };
+  const bike = await getBikeForOwner(Number(id), user.id);
+  return {
+    title: bike?.name ? bike.name : "Bicycle Details",
+  };
+}
 
 export default async function BikeDetailPage({
   params,
@@ -25,13 +38,10 @@ export default async function BikeDetailPage({
 
   const [last, trail] = await Promise.all([
     latestLocation(bike.id),
-    locationTrail(bike.id),
+    locationTrail(bike.id, 5),
   ]);
-
-  const campus = campusCenter();
   const mockScanner = mockScannerLocation();
 
-  // If no hardware scanner ping is in database yet, bind to mock scanner location inside IIT Roorkee
   const effectiveLast = last
     ? {
         lat: Number(last.lat),
@@ -49,19 +59,6 @@ export default async function BikeDetailPage({
         note: mockScanner.scannerName,
         isMock: true,
       };
-
-  const chronological = [...trail].reverse().map((p) => ({
-    lat: Number(p.lat),
-    lng: Number(p.lng),
-    recordedAt: String(p.recorded_at),
-    source: p.source,
-    note: p.reporter_note ?? undefined,
-    isMock: false,
-  }));
-
-  const mapTrail = chronological.length > 0 ? chronological : [effectiveLast];
-
-  const nfcUrl = `${appUrl()}/bike/${bike.public_id}`;
 
   return (
     <div className="space-y-6">
@@ -86,7 +83,6 @@ export default async function BikeDetailPage({
         <section className="h-96 overflow-hidden rounded-3xl bg-white p-2 shadow-sm">
           <BikeMapDynamic
             center={{ lat: effectiveLast.lat, lng: effectiveLast.lng }}
-            trail={mapTrail}
             last={effectiveLast}
             label={bike.name}
           />
@@ -96,60 +92,65 @@ export default async function BikeDetailPage({
           <h2 className="font-display text-xl text-moss">Bicycle & Plate Identifiers</h2>
           <dl className="space-y-3 text-sm">
             <div>
-              <dt className="text-ink/50">Bicycle Tag (RFID UID / BLE MAC)</dt>
+              <dt className="text-ink/50">Bicycle Tag</dt>
               <dd className="font-mono text-sm font-semibold text-moss">
                 {bike.tag_id || "Not assigned"}
               </dd>
             </div>
             <div>
-              <dt className="text-ink/50">NFC URL (written to sticker)</dt>
-              <dd className="break-all font-medium">{nfcUrl}</dd>
-            </div>
-            <div>
               <dt className="text-ink/50">iBeacon UUID</dt>
               <dd className="break-all font-mono text-xs">{bike.beacon_uuid}</dd>
             </div>
-            <div>
-              <dt className="text-ink/50">Major / Minor</dt>
-              <dd className="font-mono">
-                {bike.beacon_major} / {bike.beacon_minor}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-ink/50">Latest fix</dt>
-              <dd>
-                {last ? (
-                  <>
-                    <span className="font-medium">
-                      {Number(last.lat).toFixed(5)}, {Number(last.lng).toFixed(5)}
-                    </span>
-                    <span className="text-ink/60">
-                      {" "}· {new Date(last.recorded_at).toLocaleTimeString()} · {last.source.toUpperCase()}
-                      {last.reporter_note ? ` (${last.reporter_note})` : ""}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-amber-800">
-                    {effectiveLast.lat.toFixed(5)}, {effectiveLast.lng.toFixed(5)} · Mock Scanner (IIT Roorkee)
-                  </span>
-                )}
-              </dd>
-            </div>
           </dl>
-
-          <WriteNfcButton path={`/bike/${bike.public_id}`} />
-          <SimulateScanButton tagId={bike.tag_id} publicId={bike.public_id} />
-
-          <div className="pt-2">
-            <a
-              href={`/bike/${bike.public_id}`}
-              className="inline-block text-sm font-medium text-moss underline"
-            >
-              Open public NFC page →
-            </a>
-          </div>
         </section>
       </div>
+
+      {/* Sightings Section (Max 5, latest at top) */}
+      <section className="space-y-4 rounded-3xl bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-xl text-moss">Sightings</h2>
+          <span className="text-xs text-ink/50">
+            {trail.length} recent sighting{trail.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        <hr className="border-ink/10" />
+        {trail.length === 0 ? (
+          <p className="py-2 text-sm text-ink/60">No sightings recorded yet.</p>
+        ) : (
+          <ul className="divide-y divide-ink/10">
+            {trail.map((loc) => {
+              const dateStr = new Date(loc.recorded_at).toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              });
+              return (
+                <li key={loc.id} className="flex items-start justify-between py-3.5 first:pt-0 last:pb-0">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-moss" />
+                    <div>
+                      <div className="font-semibold text-sm text-ink/85">
+                        {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}
+                      </div>
+                      {loc.reporter_note && (
+                        <div className="mt-0.5 text-xs text-ink/60">{loc.reporter_note}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="rounded bg-mist px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-moss">
+                      {loc.source}
+                    </span>
+                    <div className="mt-1 text-xs text-ink/50">{dateStr}</div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

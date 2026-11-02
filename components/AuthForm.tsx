@@ -12,19 +12,32 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
     setPending(true);
     setError("");
     const form = new FormData(event.currentTarget);
+
+    if (mode === "register") {
+      const email = String(form.get("email") ?? "").trim().toLowerCase();
+      const iitrRegex = /^[^\s@]+@([a-zA-Z0-9-]+\.)*iitr\.ac\.in$/i;
+      if (!iitrRegex.test(email)) {
+        setPending(false);
+        setError("Email must belong to the .iitr.ac.in domain.");
+        return;
+      }
+    }
+
     const payload =
       mode === "login"
         ? {
-            email: form.get("email"),
+            identifier: form.get("identifier"),
             password: form.get("password"),
           }
         : {
             email: form.get("email"),
             password: form.get("password"),
             displayName: form.get("displayName"),
+            enrollmentId: form.get("enrollmentId"),
             phone: form.get("phone"),
             hostel: form.get("hostel"),
             room: form.get("room"),
@@ -36,8 +49,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
       body: JSON.stringify(payload),
     });
     const data = await response.json().catch(() => ({}));
-    setPending(false);
     if (!response.ok) {
+      setPending(false);
       setError(data.error ?? "Something went wrong.");
       return;
     }
@@ -48,24 +61,49 @@ export function AuthForm({ mode }: { mode: Mode }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {mode === "register" ? (
+        <>
+          <label className="block text-sm">
+            Full name
+            <input
+              name="displayName"
+              required
+              className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2"
+            />
+          </label>
+          <label className="block text-sm">
+            Enrollment No. / Faculty ID / Employee ID
+            <input
+              name="enrollmentId"
+              type="text"
+              required
+              className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2"
+            />
+          </label>
+        </>
+      ) : null}
+      {mode === "register" ? (
         <label className="block text-sm">
-          Full name
+          Campus email (.iitr.ac.in)
           <input
-            name="displayName"
+            name="email"
+            type="email"
             required
+            placeholder="student@iitr.ac.in"
             className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2"
           />
         </label>
-      ) : null}
-      <label className="block text-sm">
-        Email
-        <input
-          name="email"
-          type="email"
-          required
-          className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2"
-        />
-      </label>
+      ) : (
+        <label className="block text-sm">
+          Email or Enrollment No. / Faculty ID / Employee ID
+          <input
+            name="identifier"
+            type="text"
+            required
+            placeholder="student@iitr.ac.in or Enrollment No."
+            className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2"
+          />
+        </label>
+      )}
       <label className="block text-sm">
         Password
         <input
@@ -79,9 +117,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
       {mode === "register" ? (
         <>
           <label className="block text-sm">
-            Phone (shown on NFC tap)
+            Phone number
             <input
               name="phone"
+              type="tel"
+              required
               className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2"
             />
           </label>

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPublicBike } from "@/lib/bikes";
 import { campusCenter, mockScannerLocation } from "@/lib/campus";
@@ -6,6 +7,18 @@ import { ReportLocationButton } from "@/components/ReportLocationButton";
 import { StatusBadge } from "@/components/StatusBadge";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const bike = await getPublicBike(id.toLowerCase());
+  return {
+    title: bike ? `${bike.name} (Public Tag)` : "Public Bicycle Tag",
+  };
+}
 
 export default async function PublicBikePage({
   params,

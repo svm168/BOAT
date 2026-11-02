@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { jwtVerify } from "jose";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,7 +9,7 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   // 1. Intercept API routes: handle CORS preflight and add CORS headers
   if (request.nextUrl.pathname.startsWith("/api")) {
     if (request.method === "OPTIONS") {
@@ -25,8 +26,22 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  // 2. Auth protection for web dashboard pages
   const token = request.cookies.get("boat_session")?.value;
+
+  // 2. Instant redirect for signed-in users from root "/" to "/dashboard"
+  if (request.nextUrl.pathname === "/" && token) {
+    try {
+      const secretVal = process.env.JWT_SECRET || "";
+      if (secretVal.length >= 16) {
+        await jwtVerify(token, new TextEncoder().encode(secretVal));
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+    } catch {
+      // Invalid/expired session token - allow normal page load
+    }
+  }
+
+  // 3. Auth protection for web dashboard pages
   if (!token && request.nextUrl.pathname.startsWith("/dashboard")) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
@@ -35,5 +50,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/api/:path*"],
+  matcher: ["/", "/dashboard/:path*", "/api/:path*"],
 };

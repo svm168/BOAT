@@ -1,4 +1,4 @@
-# BOAT — Bicycle Ownership and Address Tag
+# BOAT - Bicycle Ownership and Address Tag
 
 Campus bicycle plates with two jobs:
 

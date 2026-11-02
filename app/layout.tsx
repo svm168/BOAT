@@ -15,7 +15,10 @@ const display = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "BOAT — Bicycle Ownership and Address Tag",
+  title: {
+    default: "BOAT - Bicycle Ownership and Address Tag",
+    template: "BOAT - %s",
+  },
   description: "Campus bicycle plates with NFC ownership lookup and community location tracking.",
 };
 

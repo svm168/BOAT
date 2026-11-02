@@ -1,6 +1,13 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/auth";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await getSessionUser().catch(() => null);
+  if (user) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="space-y-12">
       <section className="max-w-2xl space-y-5">

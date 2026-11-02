@@ -8,6 +8,28 @@ async function migrate() {
   const conn = await mysql.createConnection(dbUrl);
   console.log('Connected to TiDB.');
 
+  // Check columns of users for enrollment_id
+  const [userCols] = await conn.query('SHOW COLUMNS FROM users LIKE "enrollment_id"');
+  if (userCols.length === 0) {
+    console.log('Adding enrollment_id column to users...');
+    await conn.query('ALTER TABLE users ADD COLUMN enrollment_id VARCHAR(64) NULL AFTER display_name');
+    await conn.query("UPDATE users SET enrollment_id = CONCAT('ENR-', id) WHERE enrollment_id IS NULL");
+    await conn.query('ALTER TABLE users MODIFY COLUMN enrollment_id VARCHAR(64) NOT NULL');
+    await conn.query('ALTER TABLE users ADD UNIQUE KEY uq_users_enrollment (enrollment_id)');
+    console.log('enrollment_id added and populated.');
+  } else {
+    console.log('enrollment_id column already exists.');
+  }
+
+  // Ensure phone is NOT NULL
+  try {
+    await conn.query("UPDATE users SET phone = '0000000000' WHERE phone IS NULL");
+    await conn.query('ALTER TABLE users MODIFY COLUMN phone VARCHAR(32) NOT NULL');
+    console.log('phone column set to NOT NULL.');
+  } catch (e) {
+    console.log('phone modify notice:', e.message);
+  }
+
   // Check columns of bikes
   const [cols] = await conn.query('SHOW COLUMNS FROM bikes LIKE "tag_id"');
   if (cols.length === 0) {
