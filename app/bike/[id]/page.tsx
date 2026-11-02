@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPublicBike } from "@/lib/bikes";
 import { campusCenter, mockScannerLocation } from "@/lib/campus";
+import { formatToIst } from "@/lib/time";
 import { BikeMapDynamic } from "@/components/BikeMapDynamic";
 import { ReportLocationButton } from "@/components/ReportLocationButton";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -111,7 +112,7 @@ export default async function PublicBikePage({
             <dt className="text-ink/50">Last seen</dt>
             <dd>
               {bike.lastLocation
-                ? `${bike.lastLocation.recordedAt.slice(0, 16)} · ${bike.lastLocation.source.toUpperCase()}`
+                ? `${formatToIst(bike.lastLocation.recordedAt)} · ${bike.lastLocation.source.toUpperCase()}`
                 : "No sightings yet"}
             </dd>
           </div>

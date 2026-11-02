@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { getBikeForOwner, latestLocation, locationTrail } from "@/lib/bikes";
 import { mockScannerLocation } from "@/lib/campus";
+import { formatToIst } from "@/lib/time";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { BikeMapDynamic } from "@/components/BikeMapDynamic";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ToggleStatusButton } from "@/components/ToggleStatusButton";
@@ -62,6 +64,7 @@ export default async function BikeDetailPage({
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={5000} />
       <Link href="/dashboard" className="text-sm font-medium text-moss hover:underline">
         ← All bicycles
       </Link>
@@ -119,13 +122,7 @@ export default async function BikeDetailPage({
         ) : (
           <ul className="divide-y divide-ink/10">
             {trail.map((loc) => {
-              const dateStr = new Date(loc.recorded_at).toLocaleString("en-US", {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              });
+              const dateStr = formatToIst(loc.recorded_at);
               return (
                 <li key={loc.id} className="flex items-start justify-between py-3.5 first:pt-0 last:pb-0">
                   <div className="flex items-start gap-3">

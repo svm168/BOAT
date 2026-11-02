@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { formatToIst } from "@/lib/time";
 
 export type MapPoint = {
   lat: number;
@@ -164,7 +165,20 @@ export function BikeMap({ center, last, label }: BikeMapProps) {
     );
   };
 
-  // Attempt auto-routing when bike location is present
+  useEffect(() => {
+    if (typeof window === "undefined" || !navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const dev = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setDeviceLoc(dev);
+        setRouteCoords((prev) => (prev.length > 0 ? [[dev.lat, dev.lng], ...prev.slice(1)] : prev));
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
   useEffect(() => {
     if (last) {
       fetchShortestPath();
@@ -253,7 +267,7 @@ export function BikeMap({ center, last, label }: BikeMapProps) {
                 )}
                 {last.recordedAt && (
                   <div className="text-ink/50 text-[11px]">
-                    {new Date(last.recordedAt).toLocaleString()}
+                    {formatToIst(last.recordedAt)}
                   </div>
                 )}
               </div>
