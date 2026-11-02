@@ -1,16 +1,15 @@
 /*
-  BOAT Project - ESP32 NTAG215 NFC NDEF URL Flasher
+  BOAT Project - NTAG215 NFC NDEF URL Flasher Utility
   
-  This sketch flashes NTAG215 NFC stickers/tags with a standard NFC Forum Type 2
-  NDEF (NFC Data Exchange Format) URI record.
+  This utility formats and writes NTAG215 NFC tags/stickers with a standardized
+  NFC Forum Type 2 NDEF (NFC Data Exchange Format) URI record.
   
-  WHY NDEF IS CRITICAL:
-  - If a tag is written with raw text or raw bytes, mobile operating systems (iOS & Android)
-    cannot recognize it natively. The user is forced to install and open a dedicated app
-    (like NFC Tools) just to read the raw data.
-  - When written with NDEF URI format, an unlocked iPhone (XS or newer) or Android phone
-    will INSTANTLY detect the tag on tap and prompt/open the bicycle's webpage directly
-    in the browser with NO third-party app required!
+  WHY NDEF IS ESSENTIAL:
+  - Tags written with raw unstructured bytes cannot be recognized natively by mobile operating
+    systems (iOS & Android), requiring users to install specialized third-party apps.
+  - When formatted as an NDEF URI, any unlocked smartphone (iPhone XS or newer, or any modern
+    Android device) will immediately detect the tag on tap and prompt to open the bicycle
+    ownership page directly in the default web browser without any app installed.
   
   Hardware Pinout:
   -------------------------------------------------------------
@@ -26,14 +25,14 @@
   -------------------------------------------------------------
   
   Required Arduino Library:
-  - "MFRC522" by GithubCommunity / rokicki (Install from Arduino IDE Library Manager)
+  - "MFRC522" by GithubCommunity / rokicki (Available in Arduino IDE Library Manager)
 */
 
 #include <SPI.h>
 #include <MFRC522.h>
 
 // ================= BOARD SELECTION =================
-// Set to 1 if using ESP32-C3 Dev Module, or 0 for Standard ESP32 (30/38-pin)
+// Set to 1 if using ESP32-C3 Dev Module, or 0 for Standard ESP32
 #define IS_ESP32_C3  1
 
 #if IS_ESP32_C3
@@ -51,14 +50,13 @@
 #endif
 
 // ================= DEFAULT BICYCLE URL =================
-// Replace this with your bicycle's public page URL.
-// IMPORTANT: iOS & modern Android background tap requires "https://"
-// (e.g. your deployed site or Cloudflare tunnel).
-String targetUrl = "https://your-domain.com/bike/YOUR_BIKE_PUBLIC_ID";
+// Replace YOUR_BIKE_PUBLIC_ID with your bicycle's unique public ID.
+// Modern mobile operating systems require an HTTPS URL for background NFC tap detection.
+String targetUrl = "https://boat-eight-lemon.vercel.app/bike/YOUR_BIKE_PUBLIC_ID";
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
-// Prevent re-flashing the same tag multiple times in a single tap
+// Prevent re-flashing the same tag repeatedly in a single tap
 String lastFlashedUid = "";
 unsigned long lastFlashTime = 0;
 
@@ -70,15 +68,15 @@ void printBanner() {
   Serial.print("  -> ");
   Serial.println(targetUrl);
   Serial.println("--------------------------------------------------------");
-  Serial.println("TIP: You can type a new URL into Serial Monitor and");
-  Serial.println("     press ENTER at any time to update the target URL!");
+  Serial.println("NOTE: You can enter a new URL into the Serial Monitor   ");
+  Serial.println("      and press ENTER to update the target URL at runtime.");
   Serial.println("--------------------------------------------------------");
-  Serial.println("Waiting for NTAG215 tag to be tapped on RC522...\n");
+  Serial.println("Hold an NTAG215 sticker near the RC522 antenna...\n");
 }
 
 /**
- * Encodes targetUrl into NFC Forum Type 2 NDEF URI record
- * and flashes it to the NTAG215 tag.
+ * Encodes targetUrl into an NFC Forum Type 2 NDEF URI record
+ * and writes it to the user memory pages of the NTAG215 tag.
  */
 bool flashNdefUrl(String url) {
   // 1. Determine URI Identifier Prefix Code (NFC Forum URI Specification)
@@ -105,13 +103,13 @@ bool flashNdefUrl(String url) {
   int bodyLen = urlBody.length();
   int payloadLen = 1 + bodyLen; // 1 byte prefix code + URL body
 
-  // In NDEF Short Record (SR=1):
+  // NDEF Short Record (SR=1):
   // Header: 0xD1 (MB=1, ME=1, CF=0, SR=1, IL=0, TNF=001 NFC Forum Well-Known Type)
   // Type Length: 0x01
   // Payload Length: payloadLen
   // Type: 0x55 ('U' for URI Record)
   // Payload: prefixCode followed by URL characters
-  int ndefMsgLen = 1 + 1 + 1 + 1 + payloadLen; // 4 header bytes + payload
+  int ndefMsgLen = 1 + 1 + 1 + 1 + payloadLen;
 
   // Prepare linear buffer with TLV wrapper:
   // TLV Tag: 0x03 (NDEF Message)
@@ -122,19 +120,19 @@ bool flashNdefUrl(String url) {
   memset(tlvBuffer, 0, sizeof(tlvBuffer));
 
   int idx = 0;
-  tlvBuffer[idx++] = 0x03;           // TLV Type = NDEF Message
+  tlvBuffer[idx++] = 0x03;            // TLV Type = NDEF Message
   tlvBuffer[idx++] = (byte)ndefMsgLen;// NDEF Message Length
-  tlvBuffer[idx++] = 0xD1;           // NDEF Record Header (MB, ME, SR, TNF=Well-Known)
-  tlvBuffer[idx++] = 0x01;           // Type Length = 1 byte
+  tlvBuffer[idx++] = 0xD1;            // NDEF Record Header (MB, ME, SR, TNF=Well-Known)
+  tlvBuffer[idx++] = 0x01;            // Type Length = 1 byte
   tlvBuffer[idx++] = (byte)payloadLen;// Payload Length
-  tlvBuffer[idx++] = 0x55;           // Type = 'U' (URI)
-  tlvBuffer[idx++] = prefixCode;     // Protocol Prefix Code
+  tlvBuffer[idx++] = 0x55;            // Type = 'U' (URI)
+  tlvBuffer[idx++] = prefixCode;      // Protocol Prefix Code
 
   for (int i = 0; i < bodyLen; i++) {
     tlvBuffer[idx++] = (byte)urlBody[i];
   }
 
-  tlvBuffer[idx++] = 0xFE;           // Terminator TLV
+  tlvBuffer[idx++] = 0xFE;            // Terminator TLV
 
   // Pad to 4-byte page boundary
   while (idx % 4 != 0) {
@@ -149,15 +147,15 @@ bool flashNdefUrl(String url) {
   Serial.printf("  - NDEF Payload: %d bytes\n", payloadLen);
   Serial.printf("  - Total TLV:    %d bytes (%d pages)\n", totalBytes, totalPages);
 
-  // 2. Ensure Capability Container (CC) is written at Page 3
+  // 2. Ensure Capability Container (CC) is set at Page 3
   // NTAG215 CC: E1 10 3E 00 (E1=magic, 10=v1.0, 3E=504 bytes user memory, 00=read/write)
   byte ccData[4] = { 0xE1, 0x10, 0x3E, 0x00 };
   MFRC522::StatusCode status = mfrc522.MIFARE_Ultralight_Write(3, ccData, 4);
   if (status != MFRC522::STATUS_OK) {
-    Serial.print("[WARN] Failed to write Capability Container (CC): ");
+    Serial.print("[WARN] Capability Container write note: ");
     Serial.println(mfrc522.GetStatusCodeName(status));
   } else {
-    Serial.println("[OK] Capability Container (CC) verified at Page 3.");
+    Serial.println("[OK] Capability Container verified at Page 3.");
   }
 
   // 3. Write NDEF pages starting at Page 4
@@ -175,7 +173,7 @@ bool flashNdefUrl(String url) {
 
   Serial.println("[OK] All NDEF pages written successfully!");
 
-  // 4. Verify by reading back Page 4
+  // 4. Verification read of Page 4
   byte readBuffer[18];
   byte bufferSize = sizeof(readBuffer);
   status = mfrc522.MIFARE_Read(4, readBuffer, &bufferSize);
@@ -183,7 +181,7 @@ bool flashNdefUrl(String url) {
     Serial.println("[VERIFY] Tag read-back confirmed NDEF TLV (0x03) at Page 4.");
     return true;
   } else {
-    Serial.println("[WARN] Read-back verification warning, but write command succeeded.");
+    Serial.println("[WARN] Read-back verification warning, but write command completed.");
     return true;
   }
 }
@@ -205,20 +203,20 @@ void setup() {
 }
 
 void loop() {
-  // Check for new URL input from Serial Monitor
+  // Check for dynamic URL update from Serial Monitor
   if (Serial.available()) {
     String input = Serial.readStringUntil('\n');
     input.trim();
     if (input.length() > 0) {
       targetUrl = input;
-      Serial.println("\n[CONFIG UPDATED]");
-      Serial.print("Target URL is now set to: ");
+      Serial.println("\n[TARGET URL UPDATED]");
+      Serial.print("Target URL is now: ");
       Serial.println(targetUrl);
-      Serial.println("Tap an NTAG215 sticker to flash it with this URL.\n");
+      Serial.println("Hold an NTAG215 sticker near the antenna to write.\n");
     }
   }
 
-  // Look for RFID/NFC tags
+  // Detect RFID/NFC tags
   if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()) {
     delay(50);
     return;
@@ -237,16 +235,16 @@ void loop() {
   if (uidFormatted == lastFlashedUid && (now - lastFlashTime) < 5000) {
     mfrc522.PICC_HaltA();
     mfrc522.PCD_StopCrypto1();
-    return; // Skip repeated flashing of same tag without lifting
+    return;
   }
 
   lastFlashedUid = uidFormatted;
   lastFlashTime = now;
 
-  Serial.println("\n>>> NTAG215 TAG DETECTED! <<<");
-  Serial.print("Tag UID: ");
+  Serial.println("\n>>> NTAG215 TAG DETECTED <<<");
+  Serial.print("Tag Identifier: ");
   Serial.println(uidFormatted);
-  Serial.print("Flashing NDEF URL: ");
+  Serial.print("Writing URL: ");
   Serial.println(targetUrl);
 
   bool success = flashNdefUrl(targetUrl);
@@ -259,15 +257,14 @@ void loop() {
     Serial.printf("  URL:       %s\n", targetUrl.c_str());
     Serial.println("  NDEF Type: NFC Forum Well-Known URI (0x55 / 'U')");
     Serial.println("--------------------------------------------------------");
-    Serial.println("  NATIVE MOBILE TAP TEST:");
-    Serial.println("  1. Hold your unlocked phone (iPhone XS+ or Android)    ");
-    Serial.println("     against this sticker.                              ");
-    Serial.println("  2. The phone will immediately display a banner or     ");
-    Serial.println("     open the website in the browser directly!          ");
-    Serial.println("  3. NO DEDICATED NFC APP IS REQUIRED.                  ");
+    Serial.println("  MOBILE TAP VERIFICATION:                              ");
+    Serial.println("  1. Hold your unlocked smartphone against this tag.    ");
+    Serial.println("  2. The phone will display a notification banner or   ");
+    Serial.println("     open the bicycle page directly in the browser.     ");
+    Serial.println("  3. No dedicated app is required for ownership lookup. ");
     Serial.println("========================================================\n");
   } else {
-    Serial.println("\n[FAILED] Could not write NDEF data to tag. Check tag distance.\n");
+    Serial.println("\n[FAILED] Could not write NDEF data to tag. Check positioning.\n");
   }
 
   mfrc522.PICC_HaltA();

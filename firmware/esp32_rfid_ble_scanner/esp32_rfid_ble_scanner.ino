@@ -1,25 +1,23 @@
 /*
-  BOAT Project - ESP32 Campus Scanner Station (RFID + BLE)
+  BOAT Project - Campus Scanner Station (RFID + BLE)
   
-  This firmware runs on a stationary or mobile ESP32 located at an IIT Roorkee
-  cycle stand or gate (e.g. Central Library, Main Gate, SAC, Bhawans).
+  This firmware runs on a stationary or mobile ESP32 gateway.
   
-  When an RFID card/tag is tapped onto the RC522 reader or a BLE tag is detected,
-  the ESP32 sends an HTTP POST request to the BOAT server:
+  When an RFID card/tag is tapped onto the RC522 reader or a BLE beacon is detected,
+  the ESP32 sends an HTTP POST request to the BOAT cloud server:
     POST /api/location
-    Payload: { "tagId": "...", "lat": 29.8649, "lng": 77.8966, "source": "rfid", "scannerId": "GATE-1" }
   
   Hardware Pinout (ESP32 Standard):
-  - RC522 3.3V  -> ESP32 3V3  (Do NOT connect to 5V!)
-  - RC522 RST   -> ESP32 GPIO 22
-  - RC522 GND   -> ESP32 GND
-  - RC522 MISO  -> ESP32 GPIO 19
-  - RC522 MOSI  -> ESP32 GPIO 23
-  - RC522 SCK   -> ESP32 GPIO 18
-  - RC522 SDA/SS-> ESP32 GPIO 5
+  - RC522 3.3V   -> ESP32 3V3  (Do NOT connect to 5V!)
+  - RC522 RST    -> ESP32 GPIO 22
+  - RC522 GND    -> ESP32 GND
+  - RC522 MISO   -> ESP32 GPIO 19
+  - RC522 MOSI   -> ESP32 GPIO 23
+  - RC522 SCK    -> ESP32 GPIO 18
+  - RC522 SDA/SS -> ESP32 GPIO 5
 
-  Arduino Libraries Needed:
-  - "MFRC522" by rokicki
+  Required Arduino Libraries:
+  - "MFRC522" by rokicki / GithubCommunity
   - "ArduinoJson" by Benoit Blanchon (version 6.x or 7.x)
 */
 
@@ -30,18 +28,16 @@
 #include <ArduinoJson.h>
 
 // ================= USER CONFIGURATION =================
-// 1. Wi-Fi credentials (IIT Roorkee or your phone hotspot)
+// 1. Wi-Fi credentials
 const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-// 2. BOAT Backend API endpoint
-// Replace with your laptop's local LAN IP (e.g. 192.168.1.15) or deployed URL
-// Run 'ipconfig' in Windows CMD/PowerShell to find your IPv4 Address.
-const char* SERVER_URL    = "http://192.168.1.15:3000/api/location";
+// 2. Production BOAT Backend API endpoint
+const char* SERVER_URL    = "https://boat-eight-lemon.vercel.app/api/location";
 
-// 3. Scanner Station Identification & IIT Roorkee GPS Coordinates
-const char* SCANNER_ID    = "ROORKEE-GATE-1";
-const char* SCANNER_NAME  = "IIT Roorkee Main Gate Scanner";
+// 3. Scanner Station Identification & Fixed GPS Coordinates
+const char* SCANNER_ID    = "CAMPUS-GATE-1";
+const char* SCANNER_NAME  = "Main Campus Gate Scanner";
 const double SCANNER_LAT  = 29.8649;
 const double SCANNER_LNG  = 77.8966;
 // ======================================================
@@ -51,10 +47,9 @@ const double SCANNER_LNG  = 77.8966;
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
-// Debouncing: prevent spamming server for the same card
 String lastScannedTag = "";
 unsigned long lastScanTime = 0;
-const unsigned long DEBOUNCE_MS = 6000; // 6 seconds between identical tag pings
+const unsigned long DEBOUNCE_MS = 6000;
 
 void connectWiFi() {
   Serial.print("Connecting to Wi-Fi ");
@@ -70,17 +65,17 @@ void connectWiFi() {
   }
   
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n[WiFi] Connected!");
+    Serial.println("\n[WiFi] Connected successfully!");
     Serial.print("[WiFi] IP address: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\n[WiFi] Connection failed. Check SSID and Password.");
+    Serial.println("\n[WiFi] Connection failed. Verify network SSID and password.");
   }
 }
 
 bool sendLocationReport(String tagId, const char* source) {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[HTTP] Wi-Fi not connected. Reconnecting...");
+    Serial.println("[HTTP] Wi-Fi disconnected. Reconnecting...");
     connectWiFi();
     if (WiFi.status() != WL_CONNECTED) return false;
   }
@@ -100,13 +95,13 @@ bool sendLocationReport(String tagId, const char* source) {
   String jsonBody;
   serializeJson(doc, jsonBody);
 
-  Serial.println("[HTTP] Sending POST to BOAT server:");
+  Serial.println("[HTTP] Sending POST report to BOAT server:");
   Serial.println(jsonBody);
 
   int httpCode = http.POST(jsonBody);
 
   if (httpCode > 0) {
-    Serial.printf("[HTTP] Response code: %d\n", httpCode);
+    Serial.printf("[HTTP] Server response code: %d\n", httpCode);
     String response = http.getString();
     Serial.println("[HTTP] Response body: " + response);
     http.end();
@@ -130,18 +125,18 @@ void setup() {
 
   SPI.begin();
   mfrc522.PCD_Init();
-  Serial.println("[RFID] RC522 reader initialized and waiting for tags...");
+  Serial.println("[RFID] RC522 reader initialized. Waiting for tags...");
 }
 
 void loop() {
-  // Check Wi-Fi status periodically
+  // Periodically verify Wi-Fi connection
   if (WiFi.status() != WL_CONNECTED) {
     delay(2000);
     connectWiFi();
     return;
   }
 
-  // Look for RFID tags
+  // Detect and read RFID/NFC tags
   if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()) {
     String tagUid = "";
     for (byte i = 0; i < mfrc522.uid.size; i++) {
@@ -156,18 +151,18 @@ void loop() {
       lastScannedTag = tagUid;
       lastScanTime = now;
 
-      Serial.println("\n>>> BICYCLE RFID TAG SCANNED! <<<");
-      Serial.print("Tag UID: ");
+      Serial.println("\n>>> BICYCLE TAG DETECTED! <<<");
+      Serial.print("Tag Identifier: ");
       Serial.println(tagUid);
 
       bool ok = sendLocationReport(tagUid, "rfid");
       if (ok) {
-        Serial.println(">>> CHECK-IN RECORDED IN BOAT DATABASE! <<<\n");
+        Serial.println(">>> LOCATION CHECK-IN RECORDED SUCCESSFULLY! <<<\n");
       } else {
-        Serial.println("[WARN] Server check-in failed.\n");
+        Serial.println("[WARN] Server check-in could not be completed.\n");
       }
     } else {
-      Serial.println("[RFID] Tag present (debounced, skipping spam).");
+      Serial.println("[RFID] Tag present (debounced, skipping duplicate).");
     }
 
     mfrc522.PICC_HaltA();

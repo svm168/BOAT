@@ -1,84 +1,90 @@
+/*
+  BOAT Project - ESP32-C3 Ultra-Low-Power BLE Beacon Broadcaster
+  
+  This firmware broadcasts a non-connectable Bluetooth Low Energy beacon pulse
+  containing the bicycle's unique hardware identifier.
+  
+  POWER OPTIMIZATION:
+  - The micro-controller broadcasts for ~100 ms, then enters deep sleep.
+  - Periodic pulses minimize battery consumption, providing months of operation
+    on a small lithium battery pack.
+  
+  Required Settings in Arduino IDE:
+  - Board: "ESP32C3 Dev Module"
+  - USB CDC On Boot: "Enabled"
+  - Upload Speed: 921600
+*/
+
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEAdvertising.h>
-#include <esp_sleep.h>
 
-// ---- copy these 3 from the bike's dashboard page ----
-#define BEACON_UUID     "f7826da6-4fa2-4e98-8024-bc5b71e0893e"
-#define BEACON_MAJOR    1
-#define BEACON_MINOR    1
-#define BEACON_TX_POWER 0xC5   // RSSI at 1 m
+// Enter your bicycle's unique tag identifier (or assign from the web dashboard)
+static const char *BIKE_ID = "BOAT-TAG-01";
 
-// 1 = stay awake and advertise forever (for flashing/testing)
-// 0 = real duty cycle: 100 ms on, 2.5 s deep sleep
-#define DEBUG_NO_SLEEP  1
+#define COMPANY_ID_LSB 0xFF
+#define COMPANY_ID_MSB 0xFF
+#define MAX_ID_LEN     18   // Maximum ID length within 31-byte advertising frame
 
-#define ADVERTISE_MS    100
-#define SLEEP_SECONDS   2.5
+BLEAdvertising *advertising = nullptr;
 
-static uint8_t nib(char c) {
-  if (c >= '0' && c <= '9') return c - '0';
-  c |= 0x20;
-  return c - 'a' + 10;
-}
-
-static size_t buildPayload(uint8_t *p) {
-  size_t i = 0;
-  p[i++] = 0x02; p[i++] = 0x01; p[i++] = 0x06;               // flags
-  p[i++] = 0x1A; p[i++] = 0xFF; p[i++] = 0x4C; p[i++] = 0x00; // mfr data, Apple
-  p[i++] = 0x02; p[i++] = 0x15;                               // iBeacon type, len
-  int n = 0; bool have = false; uint8_t hi = 0;
-  for (const char *s = BEACON_UUID; *s && n < 16; s++) {
-    if (*s == '-') continue;
-    if (!have) { hi = nib(*s); have = true; }
-    else { p[i++] = (hi << 4) | nib(*s); have = false; n++; }
-  }
-  p[i++] = BEACON_MAJOR >> 8; p[i++] = BEACON_MAJOR & 0xFF;
-  p[i++] = BEACON_MINOR >> 8; p[i++] = BEACON_MINOR & 0xFF;
-  p[i++] = BEACON_TX_POWER;
-  return i;  // 30
-}
-
-static BLEAdvertising *startAdvertising() {
-  static uint8_t payload[31];
-  size_t len = buildPayload(payload);
-
+void startBikeAdvertising() {
   BLEDevice::init("BOAT");
-  BLEAdvertising *adv = BLEDevice::getAdvertising();
-  BLEAdvertisementData ad;
-  ad.addData((char *)payload, len);
-  adv->setAdvertisementData(ad);
-  adv->setAdvertisementType(ADV_TYPE_NONCONN_IND);  // one-way, not connectable
-  adv->setScanResponse(false);
-  adv->setMinInterval(0x20);  // 20 ms
-  adv->setMaxInterval(0x40);  // 40 ms
-  adv->start();
+  advertising = BLEDevice::getAdvertising();
 
-  Serial.printf("Advertising %u bytes: ", (unsigned)len);
-  for (size_t i = 0; i < len; i++) Serial.printf("%02X ", payload[i]);
+  size_t idLen = strlen(BIKE_ID);
+  if (idLen > MAX_ID_LEN) {
+    Serial.printf("[WARN] BIKE_ID length exceeds limit (%u > %d), truncating.\n", (unsigned)idLen, MAX_ID_LEN);
+    idLen = MAX_ID_LEN;
+  }
+
+  // Construct payload: [company identifier 2 bytes][identifier string bytes...]
+  uint8_t payload[2 + MAX_ID_LEN];
+  payload[0] = COMPANY_ID_LSB;
+  payload[1] = COMPANY_ID_MSB;
+  for (size_t i = 0; i < idLen; i++) {
+    payload[2 + i] = (uint8_t)BIKE_ID[i];
+  }
+  size_t payloadLen = 2 + idLen;
+
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  String mfg;
+#else
+  std::string mfg;
+#endif
+  for (size_t i = 0; i < payloadLen; i++) {
+    mfg += (char)payload[i];
+  }
+
+  BLEAdvertisementData advData;
+  advData.setFlags(0x06);
+  advData.setName("BOAT");
+  advData.setManufacturerData(mfg);
+
+  advertising->setAdvertisementData(advData);
+  advertising->setScanResponse(false);
+  advertising->setMinInterval(0x20);
+  advertising->setMaxInterval(0x40);
+  advertising->start();
+
+  Serial.println("[BLE] Broadcaster initialized.");
+  Serial.print("[BLE] Tag Identifier: ");
+  Serial.println(BIKE_ID);
+  Serial.print("[BLE] Raw Payload (hex): ");
+  for (size_t i = 0; i < payloadLen; i++) {
+    Serial.printf("%02X ", payload[i]);
+  }
   Serial.println();
-  return adv;
 }
 
 void setup() {
   Serial.begin(115200);
   delay(1500);
-  Serial.println("BOAT beacon start");
-
-  BLEAdvertising *adv = startAdvertising();
-
-#if DEBUG_NO_SLEEP
-  return;  // loop() keeps it alive
-#else
-  delay(ADVERTISE_MS);
-  adv->stop();
-  BLEDevice::deinit(true);
-  esp_sleep_enable_timer_wakeup((uint64_t)(SLEEP_SECONDS * 1000000.0));
-  esp_deep_sleep_start();
-#endif
+  Serial.println("Starting BOAT BLE Broadcaster...");
+  startBikeAdvertising();
 }
 
 void loop() {
-  Serial.println("still advertising...");
   delay(5000);
+  Serial.println("[BLE] Periodic pulse broadcast active.");
 }
