@@ -20,11 +20,10 @@ export function WriteNfcButton({ path }: { path: string }) {
       setBaseUrl(window.location.origin);
     }
 
-    // 2. Check Web NFC support (available in Chrome for Android over HTTPS/localhost)
     setSupported("NDEFReader" in window);
   }, []);
 
-  const fullUrl = `${baseUrl || "http://localhost:3000"}${path}`;
+  const fullUrl = `${baseUrl || "https://boat-eight-lemon.vercel.app"}${path}`;
   const isHttps = fullUrl.startsWith("https://");
   const isLocalOrInsecure = /localhost|127\.0\.0\.1|192\.168\./.test(fullUrl) || !isHttps;
 

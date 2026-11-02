@@ -39,9 +39,7 @@ export async function createSession(userId: number): Promise<string> {
       path: "/",
       maxAge: 60 * 60 * 24 * 14,
     });
-  } catch {
-    // cookies() may not be modifiable in some environments; token is still returned
-  }
+  } catch {}
 
   return token;
 }
@@ -50,33 +48,25 @@ export async function clearSession() {
   try {
     const jar = await cookies();
     jar.delete(COOKIE);
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 export async function getSessionUser(): Promise<User | null> {
   let token: string | undefined;
 
-  // 1. Check Authorization: Bearer <token> (standard for Flutter / mobile apps)
   try {
     const reqHeaders = await headers();
     const authHeader = reqHeaders.get("authorization");
     if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
       token = authHeader.slice(7).trim();
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
-  // 2. Fall back to Cookie (standard for web browsers)
   if (!token) {
     try {
       const jar = await cookies();
       token = jar.get(COOKIE)?.value;
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   if (!token) return null;

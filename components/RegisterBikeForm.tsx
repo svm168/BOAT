@@ -11,7 +11,6 @@ export function RegisterBikeForm() {
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // Guard against rapid duplicate clicks immediately before React re-render
     if (isSubmittingRef.current || pending) {
       return;
     }

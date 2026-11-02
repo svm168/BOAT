@@ -32,7 +32,6 @@ export default async function PublicBikePage({
   const campus = campusCenter();
   const mockScanner = mockScannerLocation();
 
-  // If no hardware fix has been recorded yet, show mock scanner fix at IIT Roorkee
   const effectiveLast = bike.lastLocation
     ? {
         lat: bike.lastLocation.lat,

@@ -19,7 +19,6 @@ export function SimulateScanButton({
     setLoading(true);
     setResult(null);
 
-    // Random slight jitter around IIT Roorkee campus to simulate movement between stands
     const locations = [
       { name: "Central Library Stand", lat: 29.8655, lng: 77.8960, scannerId: "ROORKEE-LIB-1" },
       { name: "Main Building Gate", lat: 29.8649, lng: 77.8966, scannerId: "ROORKEE-GATE-1" },

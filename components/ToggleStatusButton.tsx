@@ -20,7 +20,6 @@ export function ToggleStatusButton({
   const targetStatus = isMissing ? "active" : "missing";
 
   async function toggle() {
-    // Synchronously block double clicks caused by fast clicking or network latency
     if (isSubmittingRef.current || pending) {
       return;
     }

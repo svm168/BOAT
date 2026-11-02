@@ -36,9 +36,7 @@ export async function middleware(request: NextRequest) {
         await jwtVerify(token, new TextEncoder().encode(secretVal));
         return NextResponse.redirect(new URL("/dashboard", request.url));
       }
-    } catch {
-      // Invalid/expired session token - allow normal page load
-    }
+    } catch {}
   }
 
   // 3. Auth protection for web dashboard pages

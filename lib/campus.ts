@@ -6,10 +6,6 @@ export function campusCenter() {
   };
 }
 
-/**
- * Mock scanner location inside IIT Roorkee campus (e.g., Central Library / Main Gate)
- * Used as fallback location marker until real hardware scanners report fixes.
- */
 export function mockScannerLocation() {
   return {
     lat: 29.8655,
@@ -27,5 +23,5 @@ export function campusBeaconUuid() {
 }
 
 export function appUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return process.env.NEXT_PUBLIC_APP_URL ?? "https://boat-eight-lemon.vercel.app";
 }
